@@ -11,6 +11,8 @@ import kotlinx.coroutines.launch
 class ShoppingViewModel(private val dao: ProductDao) : ViewModel() {
     val allProductsToPurchase: Flow<List<Product>> = dao.getAllForState(ProductState.TODO)
 
+    val allProductsInCart: Flow<List<Product>> = dao.getAllForState(ProductState.IN_CART)
+
 
     /**
      * Add new product to the to do list section of the shopping list

@@ -6,9 +6,9 @@ import java.time.LocalDateTime
 
 @Entity
 data class Product(
-    @PrimaryKey
-    val id: Int,
-    val name: String,
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val name: String = "Apple",
     val amount: Float = 1f,
     val price: Float? = null,
     val day: Int? = null,

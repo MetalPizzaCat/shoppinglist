@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -21,9 +20,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.CardColors
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -45,38 +42,29 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.metalpizzacat.shoppinglist.data.Product
 import com.metalpizzacat.shoppinglist.data.ProductDatabase
+import com.metalpizzacat.shoppinglist.data.ProductState
 import com.metalpizzacat.shoppinglist.ui.theme.ShoppinglistTheme
 import com.metalpizzacat.shoppinglist.view.ShoppingViewModel
 import com.metalpizzacat.shoppinglist.view.ShoppingViewModelFactory
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.metalpizzacat.shoppinglist.data.ProductState
+import java.time.LocalDateTime
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            var isViewingHistory by remember { mutableStateOf(false) }
             ShoppinglistTheme {
-                ShoppingListApplication()
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Column(Modifier.padding(innerPadding)) {
+                        ShoppingList()
+                        ShoppingCart()
+                    }
+                }
             }
-        }
-    }
-}
-
-@Composable
-fun ShoppingListApplication(
-    viewModel: ShoppingViewModel = viewModel(
-        factory = ShoppingViewModelFactory(
-            ProductDatabase.getDatabase(LocalContext.current).getProductDao()
-        )
-    )
-) {
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        Column(Modifier.padding(innerPadding)) {
-            ShoppingList()
-            ShoppingCart(emptyList())
         }
     }
 }
@@ -85,8 +73,10 @@ fun ShoppingListApplication(
 fun ShoppingListItemEdit(
     productName: String,
     productAmount: Float,
+    price: Float?,
     onNameChanged: (String) -> Unit,
     onAmountChanged: (Float) -> Unit,
+    onPriceChanged: ((Float) -> Unit)?,
 
     onAccepted: () -> Unit,
     onCanceled: (() -> Unit)?,
@@ -96,7 +86,7 @@ fun ShoppingListItemEdit(
         OutlinedTextField(
             productName,
             onValueChange = onNameChanged,
-            label = { Text("Name") }, modifier = Modifier.weight(0.6f)
+            label = { Text("Name") }, modifier = Modifier.weight(0.5f)
         )
         OutlinedTextField(
             productAmount.toString(),
@@ -111,6 +101,22 @@ fun ShoppingListItemEdit(
                 keyboardType = KeyboardType.Decimal // Opens numeric keyboard with decimal point
             ),
         )
+
+        onPriceChanged?.let {
+            OutlinedTextField(
+                (price ?: 0f).toString(),
+                onValueChange = {
+                    it.toFloatOrNull()?.let { amount ->
+                        onPriceChanged(amount)
+                    }
+                },
+                label = { Text("Price") },
+                modifier = Modifier.weight(0.3f),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal // Opens numeric keyboard with decimal point
+                ),
+            )
+        }
         IconButton(onClick = {
             onAccepted()
 
@@ -139,11 +145,14 @@ fun ShoppingListItem(
     onProductUpdated: (Product) -> Unit,
     onMovedToShoppingCart: () -> Unit,
     onDeleted: () -> Unit,
+    purchaseIcon: @Composable (() -> Unit),
+    cancelPurchaseIcon: @Composable (() -> Unit),
     modifier: Modifier = Modifier,
 ) {
     var isEdited by remember { mutableStateOf(false) }
     var productName by remember { mutableStateOf(product.name) }
     var productAmount by remember { mutableFloatStateOf(product.amount) }
+    var productPrice by remember { mutableStateOf(product.price) }
     Row(
         modifier
             .fillMaxWidth()
@@ -154,15 +163,23 @@ fun ShoppingListItem(
             Row {
                 if (isBeingEdited) {
                     ShoppingListItemEdit(
-                        productName, productAmount, onNameChanged = {
+                        productName,
+                        productAmount,
+                        productPrice,
+                        onNameChanged = {
                             productName = it
                         },
                         onAmountChanged = { productAmount = it },
+                        onPriceChanged = { productPrice = it },
                         onAccepted = {
+                            if (productPrice != null && productPrice == 0f) {
+                                productPrice = null
+                            }
                             onProductUpdated(
                                 product.copy(
                                     name = productName,
-                                    amount = productAmount
+                                    amount = productAmount,
+                                    price = productPrice
                                 )
                             )
                             isEdited = false
@@ -170,32 +187,26 @@ fun ShoppingListItem(
                         onCanceled = {
                             productName = product.name
                             productAmount = product.amount
+                            productPrice = product.price
                             isEdited = false
                         })
                 } else {
-                    Text(productName, Modifier.weight(0.6f))
+                    Text(productName, Modifier.weight(0.5f))
                     Text(productAmount.toString(), Modifier.weight(0.1f))
+                    productPrice?.let {
+                        Text(it.toString(), Modifier.weight(0.1f))
+                    }
                     IconButton(onClick = { onMovedToShoppingCart() }) {
-                        Icon(
-                            Icons.Default.ShoppingCart,
-                            contentDescription = "Mark as being in cart"
-                        )
+                        purchaseIcon()
                     }
                     IconButton(onClick = { onDeleted() }) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete item from list"
-                        )
+                        cancelPurchaseIcon()
+
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun CartItem(product: Product, modifier: Modifier = Modifier) {
-
 }
 
 @Composable
@@ -223,8 +234,10 @@ fun ShoppingList(
         ShoppingListItemEdit(
             newProductName,
             newProductAmount,
+            null,
             onNameChanged = { newProductName = it },
             onAmountChanged = { newProductAmount = it },
+            onPriceChanged = null,
             onAccepted = {
                 viewModel.addNewProductToBuy(newProductName, newProductAmount)
                 newProductName = ""
@@ -234,12 +247,33 @@ fun ShoppingList(
             modifier = Modifier.padding(3.dp)
         )
         LazyColumn() {
-            itemsIndexed(products, key = { i, p -> p.id }) { i, product ->
+            itemsIndexed(products, key = { _, p -> p.id }) { i, product ->
                 ShoppingListItem(
                     product,
                     onProductUpdated = { viewModel.updateProduct(it) },
-                    onMovedToShoppingCart = { viewModel.updateProduct(product.copy(state = ProductState.IN_CART)) },
+                    onMovedToShoppingCart = {
+                        viewModel.updateProduct(
+                            product.copy(
+                                state = ProductState.IN_CART,
+                                day = LocalDateTime.now().dayOfMonth,
+                                month = LocalDateTime.now().monthValue,
+                                year = LocalDateTime.now().year
+                            )
+                        )
+                    },
                     onDeleted = { viewModel.deleteProduct(product) },
+                    purchaseIcon = {
+                        Icon(
+                            Icons.Default.ShoppingCart,
+                            contentDescription = "Mark as being in cart"
+                        )
+                    },
+                    cancelPurchaseIcon = {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Delete item from list"
+                        )
+                    },
                     modifier = Modifier.background(
                         if (i % 2 == 0) {
                             MaterialTheme.colorScheme.inversePrimary
@@ -254,7 +288,15 @@ fun ShoppingList(
 }
 
 @Composable
-fun ShoppingCart(products: List<Product>, modifier: Modifier = Modifier) {
+fun ShoppingCart(
+    modifier: Modifier = Modifier,
+    viewModel: ShoppingViewModel = viewModel(
+        factory = ShoppingViewModelFactory(
+            ProductDatabase.getDatabase(LocalContext.current).getProductDao()
+        )
+    ),
+) {
+    val products by viewModel.allProductsInCart.collectAsState(initial = emptyList())
     ElevatedCard(
         modifier
             .fillMaxWidth()
@@ -266,8 +308,33 @@ fun ShoppingCart(products: List<Product>, modifier: Modifier = Modifier) {
         }
         LazyColumn() {
             itemsIndexed(products, key = { i, p -> p.id }) { i, product ->
-                CartItem(
-                    product, Modifier.background(
+                ShoppingListItem(
+                    product,
+                    onProductUpdated = { viewModel.updateProduct(it) },
+                    onMovedToShoppingCart = {
+                        viewModel.updateProduct(
+                            product.copy(
+                                state = ProductState.BOUGHT
+                            )
+                        )
+                    },
+                    onDeleted = {
+                        viewModel.updateProduct(product.copy(state = ProductState.TODO))
+                    },
+                    purchaseIcon = {
+                        Icon(
+                            Icons.Default.ThumbUp,
+                            contentDescription = "Finalize purchase"
+                        )
+                    },
+                    cancelPurchaseIcon = {
+                        Icon(
+                            Icons.Default.ShoppingCart,
+                            contentDescription = "Return item to shopping cart"
+                        )
+                    },
+
+                    modifier = Modifier.background(
                         if (i % 2 == 0) {
                             MaterialTheme.colorScheme.inversePrimary
                         } else {
@@ -280,12 +347,17 @@ fun ShoppingCart(products: List<Product>, modifier: Modifier = Modifier) {
     }
 }
 
-
+@Preview
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+fun CartItemEditPreview() {
+    ShoppingListItemEdit(
+        "Hey apple",
+        23f,
+        5f,
+        onNameChanged = {},
+        onAmountChanged = {},
+        onPriceChanged = {},
+        onAccepted = {},
+        onCanceled = {})
 }
 
