@@ -21,6 +21,10 @@ interface ProductDao {
     @Query("select * from product where state='BOUGHT' and month=:month and year=:year")
     fun getAllBoughtDuring(month: Int, year: Int): Flow<List<Product>>
 
+    @Query("select * from product where state='BOUGHT' group by day, month, year")
+    fun getAllPreviousPurchases(): Flow<Map<PurchaseDay, List<Product>>>
+
+
     @Delete
-    suspend fun delete(product : Product)
+    suspend fun delete(product: Product)
 }

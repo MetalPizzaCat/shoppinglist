@@ -5,11 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.metalpizzacat.shoppinglist.data.Product
 import com.metalpizzacat.shoppinglist.data.ProductDao
 import com.metalpizzacat.shoppinglist.data.ProductState
+import com.metalpizzacat.shoppinglist.data.PurchaseDay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 class ShoppingViewModel(private val dao: ProductDao) : ViewModel() {
     val allProductsToPurchase: Flow<List<Product>> = dao.getAllForState(ProductState.TODO)
+
+    val allPreviousPurchases : Flow<Map<PurchaseDay, List<Product>>> = dao.getAllPreviousPurchases()
 
     val allProductsInCart: Flow<List<Product>> = dao.getAllForState(ProductState.IN_CART)
 
