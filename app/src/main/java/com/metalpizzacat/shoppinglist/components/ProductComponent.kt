@@ -40,10 +40,7 @@ import kotlin.text.toFloatOrNull
 
 /**
  * Composable component that represents editor for the product
- * @param productName Name of the product
- * @param productAmount Amount of product
- * @param price Price or null if no price specified
- * @param purchaseDate Date when purchased or null if none specified
+ * @param product Product to edit
  * @param onNameChanged
  * @param onAmountChanged
  * @param onPriceChanged Callback for change in price through editor. If null the editor is hidden
@@ -55,32 +52,40 @@ import kotlin.text.toFloatOrNull
  */
 @Composable
 fun ProductEdit(
-    productName: String,
-    productAmount: Float,
-    price: Float?,
-    purchaseDate: PurchaseDay?,
-    onNameChanged: (String) -> Unit,
-    onAmountChanged: (Float) -> Unit,
-    onPriceChanged: ((Float) -> Unit)?,
-    onDateChanged: ((PurchaseDay) -> Unit)?,
+    product: Product,
+    allowPriceChange: Boolean,
+    allowDateChange: Boolean,
 
-    onAccepted: () -> Unit,
+    onAccepted: (Product) -> Unit,
     onCanceled: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    var name by remember { mutableStateOf(product.name) }
+    var amount by remember { mutableFloatStateOf(product.amount) }
+    var price by remember { mutableStateOf(product.price) }
+    var purchaseDay by remember {
+        mutableStateOf(
+            PurchaseDay(
+                product.day,
+                product.month,
+                product.year
+            )
+        )
+    }
+
     var isPickingDate by remember { mutableStateOf(false) }
     Column(modifier) {
         Row {
             OutlinedTextField(
-                productName,
-                onValueChange = onNameChanged,
+                name,
+                onValueChange = { name = it },
                 label = { Text(stringResource(R.string.name)) }, modifier = Modifier.weight(0.5f)
             )
             OutlinedTextField(
-                productAmount.toString(),
+                amount.toString(),
                 onValueChange = {
-                    it.toFloatOrNull()?.let { amount ->
-                        onAmountChanged(amount)
+                    it.toFloatOrNull()?.let { a ->
+                        amount = a
                     }
                 },
                 label = { Text(stringResource(R.string.amount)) },
@@ -90,12 +95,12 @@ fun ProductEdit(
                 ),
             )
 
-            onPriceChanged?.let {
+            if (allowPriceChange) {
                 OutlinedTextField(
                     (price ?: 0f).toString(),
                     onValueChange = {
-                        it.toFloatOrNull()?.let { amount ->
-                            onPriceChanged(amount)
+                        it.toFloatOrNull()?.let { p ->
+                            amount = p
                         }
                     },
                     label = { Text(stringResource(R.string.price)) },
@@ -106,9 +111,18 @@ fun ProductEdit(
                 )
             }
             IconButton(onClick = {
-                onAccepted()
+                onAccepted(
+                    product.copy(
+                        name = name,
+                        amount = amount,
+                        price = price,
+                        day = purchaseDay.day,
+                        month = purchaseDay.month,
+                        year = purchaseDay.year
+                    )
+                )
 
-            }, modifier = Modifier.weight(0.1f), enabled = productName.isNotBlank()) {
+            }, modifier = Modifier.weight(0.1f), enabled = name.isNotBlank()) {
                 Icon(
                     Icons.Default.Done,
                     contentDescription = stringResource(R.string.finish_editing)
@@ -117,7 +131,7 @@ fun ProductEdit(
             onCanceled?.let {
                 IconButton(onClick = {
                     onCanceled()
-                }, modifier = Modifier.weight(0.1f), enabled = productName.isNotBlank()) {
+                }, modifier = Modifier.weight(0.1f), enabled = name.isNotBlank()) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.cancel_editing)
@@ -125,7 +139,7 @@ fun ProductEdit(
                 }
             }
         }
-        purchaseDate?.toFormatedString()?.let {
+        purchaseDay.toFormatedString()?.let {
             ElevatedCard(
                 Modifier
                     .padding(5.dp)
@@ -135,14 +149,23 @@ fun ProductEdit(
             }
         }
 
-        AnimatedVisibility(visible = isPickingDate) {
-            DatePickerModal(onDismiss = { isPickingDate = false }, onDateSelected = {
-                it?.let {
-                    val date = LocalDate.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
-                    onDateChanged?.invoke(PurchaseDay(date.dayOfMonth, date.monthValue, date.year))
-                    isPickingDate = false
-                }
-            })
+        if (allowDateChange) {
+            AnimatedVisibility(visible = isPickingDate) {
+                DatePickerModal(onDismiss = { isPickingDate = false }, onDateSelected = {
+                    it?.let {
+                        val date =
+                            LocalDate.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
+                        purchaseDay =
+                            PurchaseDay(
+                                date.dayOfMonth,
+                                date.monthValue,
+                                date.year
+                            )
+
+                        isPickingDate = false
+                    }
+                })
+            }
         }
     }
 }
@@ -159,18 +182,7 @@ fun ProductDisplay(
     modifier: Modifier = Modifier,
 ) {
     var isEdited by remember { mutableStateOf(false) }
-    var productName by remember { mutableStateOf(product.name) }
-    var productAmount by remember { mutableFloatStateOf(product.amount) }
-    var productPrice by remember { mutableStateOf(product.price) }
-    var productPurchaseDay by remember {
-        mutableStateOf(
-            PurchaseDay(
-                product.day,
-                product.month,
-                product.year
-            )
-        )
-    }
+
     Row(
         modifier
             .fillMaxWidth()
@@ -184,49 +196,21 @@ fun ProductDisplay(
             Row {
                 if (isBeingEdited) {
                     ProductEdit(
-                        productName,
-                        productAmount,
-                        productPrice,
-
-                        productPurchaseDay,
-                        onNameChanged = {
-                            productName = it
-                        },
-                        onAmountChanged = { productAmount = it },
-                        onPriceChanged = { productPrice = it },
+                        product,
+                        allowDateChange = true,
+                        allowPriceChange = true,
                         onAccepted = {
-                            if (productPrice != null && productPrice == 0f) {
-                                productPrice = null
-                            }
-                            onProductUpdated(
-                                product.copy(
-                                    name = productName,
-                                    amount = productAmount,
-                                    price = productPrice,
-                                    day = productPurchaseDay.day,
-                                    month = productPurchaseDay.month,
-                                    year = productPurchaseDay.year
-                                )
-                            )
+                            onProductUpdated(it)
                             isEdited = false
                         },
-                        onDateChanged = if (product.year == null) {
-                            null
-                        } else {
-                            {
-                                productPurchaseDay = it
-                            }
-                        },
+
                         onCanceled = {
-                            productName = product.name
-                            productAmount = product.amount
-                            productPrice = product.price
                             isEdited = false
                         })
                 } else {
-                    Text(productName, Modifier.weight(0.3f))
-                    Text(productAmount.toString(), Modifier.weight(0.2f))
-                    productPrice?.let {
+                    Text(product.name, Modifier.weight(0.3f))
+                    Text(product.amount.toString(), Modifier.weight(0.2f))
+                    product.price?.let {
                         Text(it.toString(), Modifier.weight(0.2f))
                     }
                     IconButton(onClick = { onMovedToShoppingCart() }) {

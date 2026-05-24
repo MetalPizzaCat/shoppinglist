@@ -87,7 +87,7 @@ fun PreviousPurchasesList(
     ) {
         val products = products.groupBy { PurchaseDay(it.day, it.month, it.year) }
 
-        items(products.keys.toList()) { date ->
+        items(products.keys.toList(), key = { it.toString() }) { date ->
             if (date.year != null && date.month != null && date.day != null) {
                 ElevatedCard(Modifier.padding(5.dp)) {
                     Column {
