@@ -97,10 +97,10 @@ fun ProductEdit(
 
             if (allowPriceChange) {
                 OutlinedTextField(
-                    (price ?: 0f).toString(),
+                    price?.toString() ?: "",
                     onValueChange = {
                         it.toFloatOrNull()?.let { p ->
-                            amount = p
+                            price = p
                         }
                     },
                     label = { Text(stringResource(R.string.price)) },
