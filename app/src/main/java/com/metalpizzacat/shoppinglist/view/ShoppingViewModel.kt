@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 class ShoppingViewModel(private val dao: ProductDao) : ViewModel() {
     val allProductsToPurchase: Flow<List<Product>> = dao.getAllForState(ProductState.TODO)
 
-    val allPreviousPurchases : Flow<Map<PurchaseDay, List<Product>>> = dao.getAllPreviousPurchases()
+    val allPreviousPurchases : Flow<List<Product>> =  dao.getAllForState(ProductState.BOUGHT)
 
     val allProductsInCart: Flow<List<Product>> = dao.getAllForState(ProductState.IN_CART)
 

@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId = "com.metalpizzacat.shoppinglist"
-        minSdk = 30
+        minSdk = 34
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -37,6 +37,7 @@ android {
     }
     kotlinOptions {
         jvmTarget = "11"
+        allWarningsAsErrors = false
     }
     buildFeatures {
         compose = true

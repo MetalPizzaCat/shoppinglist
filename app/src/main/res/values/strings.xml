@@ -1,3 +1,18 @@
 <resources>
     <string name="app_name">shoppinglist</string>
+    <string name="cart">Cart</string>
+    <string name="shopping_cart_icon">Shopping cart icon</string>
+    <string name="finalize_purchase">Finalize purchase</string>
+    <string name="return_item_to_shopping_cart">Return item to shopping cart</string>
+    <string name="mark_as_being_in_cart">Mark as being in cart</string>
+    <string name="delete_item_from_list">Delete item from list</string>
+    <string name="shopping_list_icon">Shopping list icon</string>
+    <string name="no">No</string>
+    <string name="trash_icon">Trash icon</string>
+    <string name="do_you_want_to_remove">Do you want to remove %1$s?</string>
+    <string name="name">Name</string>
+    <string name="amount">Amount</string>
+    <string name="price">Price</string>
+    <string name="finish_editing">Finish editing</string>
+    <string name="cancel_editing">Cancel editing</string>
 </resources>

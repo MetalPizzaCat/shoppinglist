@@ -3,11 +3,14 @@ package com.metalpizzacat.shoppinglist.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ElevatedCard
@@ -25,11 +28,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.metalpizzacat.shoppinglist.R
 import com.metalpizzacat.shoppinglist.data.Product
 import com.metalpizzacat.shoppinglist.data.ProductDatabase
+import com.metalpizzacat.shoppinglist.data.ProductState
+import com.metalpizzacat.shoppinglist.data.PurchaseDay
 import com.metalpizzacat.shoppinglist.view.ShoppingViewModel
 import com.metalpizzacat.shoppinglist.view.ShoppingViewModelFactory
 import java.text.SimpleDateFormat
@@ -38,35 +46,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DatePickerModal(
-    onDismiss: () -> Unit,
-    onDateSelected: (Long?) -> Unit,
-) {
-    val datePickerState = rememberDatePickerState()
-
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                onDateSelected(datePickerState.selectedDateMillis)
-                onDismiss()
-            }) {
-                Text("Ok")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    ) {
-        DatePicker(state = datePickerState)
-    }
-}
 
 
 @Composable
@@ -78,68 +57,76 @@ fun PreviousPurchasesList(
         )
     ),
 ) {
-    var productToPickDateFor by remember { mutableStateOf<Product?>(null) }
 
-    val products by viewModel.allPreviousPurchases.collectAsState(initial = emptyMap())
+    val products by viewModel.allPreviousPurchases.collectAsState(initial = emptyList())
+    var currentlyDeletedItem by remember { mutableStateOf<Product?>(null) }
+    AnimatedVisibility(currentlyDeletedItem != null) {
+        AlertDialog(
+            title = {
+                Text(
+                    stringResource(
+                        R.string.do_you_want_to_remove,
+                        currentlyDeletedItem?.name ?: "OOPS!"
+                    )
+                )
+            },
+            icon = { Icon(Icons.Default.Delete, contentDescription = "Trash icon") },
+            onDismissRequest = { currentlyDeletedItem = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteProduct(currentlyDeletedItem!!)
+                    currentlyDeletedItem = null
+                }) { Text("Yes") }
+            },
+            dismissButton = {
+                TextButton(onClick = { currentlyDeletedItem = null }) { Text("No") }
+            })
+    }
     LazyColumn(
         modifier
     ) {
+        val products = products.groupBy { PurchaseDay(it.day, it.month, it.year) }
+
         items(products.keys.toList()) { date ->
             if (date.year != null && date.month != null && date.day != null) {
                 ElevatedCard(Modifier.padding(5.dp)) {
                     Column {
-                        Text(
-                            SimpleDateFormat(
-                                "EEE dd-MM-yyyy",
-                                Locale.getDefault()
-                            ).format(
-                                Date.from(
-                                    LocalDate.of(date.year, date.month + 1, date.day + 1)
-                                        .atStartOfDay(
-                                            ZoneId.systemDefault()
-                                        ).toInstant()
-                                )
-                            ),
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(Modifier.padding(5.dp)) {
+                            Text(
+                                date.toFormatedString() ?: "MISSING DATE SOMEHOW",
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(0.3f)
+                            )
+                            Text("Total: ${products[date]?.sumOf { it.price?.toDouble() ?: 0.0 } ?: 0.0}",
+                                textAlign = TextAlign.Right,
+                                modifier = Modifier.weight(0.7f))
+                        }
                         products[date]?.forEachIndexed { i, product ->
-                            Column(
-                                modifier = Modifier.background(
+
+                            ProductDisplay(
+                                product,
+                                onProductUpdated = { viewModel.updateProduct(it) },
+                                onMovedToShoppingCart = { viewModel.updateProduct(product.copy(state = ProductState.IN_CART)) },
+                                onDeleted = { currentlyDeletedItem = product },
+                                purchaseIcon = {
+                                    Icon(
+                                        Icons.Default.ShoppingCart,
+                                        contentDescription = "Move back to shopping cart"
+                                    )
+                                },
+                                cancelPurchaseIcon = {
+                                    Icon(
+                                        Icons.Default.Delete,
+                                        contentDescription = "Delete item from list"
+                                    )
+                                }, modifier = Modifier.background(
                                     if (i % 2 == 0) {
                                         MaterialTheme.colorScheme.inversePrimary
                                     } else {
                                         MaterialTheme.colorScheme.primaryContainer
                                     }
                                 )
-                            ) {
-                                ProductDisplay(
-                                    product,
-                                    onProductUpdated = { viewModel.updateProduct(it) },
-                                    onMovedToShoppingCart = {},
-                                    onDeleted = { },
-                                    purchaseIcon = {},
-                                    cancelPurchaseIcon = {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "Delete item from list"
-                                        )
-                                    }
-                                )
-                                Text(
-                                    SimpleDateFormat(
-                                        "EEE dd-MM-yyyy",
-                                        Locale.getDefault()
-                                    ).format(
-                                        Date.from(
-                                            LocalDate.of(date.year, date.month + 1, date.day + 1)
-                                                .atStartOfDay(
-                                                    ZoneId.systemDefault()
-                                                ).toInstant()
-                                        )
-                                    )
-                                )
-
-                            }
+                            )
                         }
                     }
                 }
@@ -147,22 +134,6 @@ fun PreviousPurchasesList(
         }
     }
 
-    AnimatedVisibility(visible = productToPickDateFor != null) {
-        DatePickerModal(onDismiss = { productToPickDateFor = null }, onDateSelected = {
-            it?.let {
-                val date = LocalDate.ofInstant(Instant.ofEpochMilli(it), ZoneId.systemDefault())
-                productToPickDateFor?.let { p ->
-                    viewModel.updateProduct(
-                        p.copy(
-                            day = date.dayOfMonth,
-                            month = date.monthValue,
-                            year = date.year
-                        )
-                    )
-                }
-                productToPickDateFor = null
-            }
-        })
-    }
+
 }
 

@@ -28,13 +28,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.metalpizzacat.shoppinglist.R
 import com.metalpizzacat.shoppinglist.data.Product
 import com.metalpizzacat.shoppinglist.data.ProductDatabase
 import com.metalpizzacat.shoppinglist.data.ProductState
+import com.metalpizzacat.shoppinglist.data.PurchaseDay
 import com.metalpizzacat.shoppinglist.view.ShoppingViewModel
 import com.metalpizzacat.shoppinglist.view.ShoppingViewModelFactory
 import java.time.LocalDateTime
@@ -59,9 +62,13 @@ fun ShoppingList(
     AnimatedVisibility(currentlyDeletedItem != null) {
         AlertDialog(
             title = {
-                Text("Do you want to remove ${currentlyDeletedItem?.name ?: "OOPS!"}?")
+                Text(
+                    stringResource(
+                        R.string.do_you_want_to_remove,
+                        currentlyDeletedItem?.name ?: "OOPS!"
+                    ))
             },
-            icon = { Icon(Icons.Default.Delete, contentDescription = "Trash icon") },
+            icon = { Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.trash_icon)) },
             onDismissRequest = { currentlyDeletedItem = null },
             confirmButton = {
                 TextButton(onClick = {
@@ -70,21 +77,23 @@ fun ShoppingList(
                 }) { Text("Yes") }
             },
             dismissButton = {
-                TextButton(onClick = { currentlyDeletedItem = null }) { Text("No") }
+                TextButton(onClick = { currentlyDeletedItem = null }) { Text(stringResource(R.string.no)) }
             })
     }
     ElevatedCard(modifier.fillMaxWidth()) {
         Row {
-            Icon(Icons.Default.Create, contentDescription = "Shopping list icon")
+            Icon(Icons.Default.Create, contentDescription = stringResource(R.string.shopping_list_icon))
             Text("Shopping list", fontSize = 14.sp)
         }
         ProductEdit(
             newProductName,
             newProductAmount,
             null,
+            null,
             onNameChanged = { newProductName = it },
             onAmountChanged = { newProductAmount = it },
             onPriceChanged = null,
+            onDateChanged = null,
             onAccepted = {
                 viewModel.addNewProductToBuy(newProductName, newProductAmount)
                 newProductName = ""
@@ -112,13 +121,13 @@ fun ShoppingList(
                     purchaseIcon = {
                         Icon(
                             Icons.Default.ShoppingCart,
-                            contentDescription = "Mark as being in cart"
+                            contentDescription = stringResource(R.string.mark_as_being_in_cart)
                         )
                     },
                     cancelPurchaseIcon = {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Delete item from list"
+                            contentDescription = stringResource(R.string.delete_item_from_list)
                         )
                     },
                     modifier = Modifier.background(
@@ -150,8 +159,8 @@ fun ShoppingCart(
             .padding(top = 3.dp)
     ) {
         Row {
-            Icon(Icons.Default.ShoppingCart, contentDescription = "Shopping cart icon")
-            Text("Card", fontSize = 14.sp)
+            Icon(Icons.Default.ShoppingCart, contentDescription = stringResource(R.string.shopping_cart_icon))
+            Text(stringResource(R.string.cart), fontSize = 14.sp)
         }
         LazyColumn() {
             itemsIndexed(products, key = { i, p -> p.id }) { i, product ->
@@ -171,13 +180,13 @@ fun ShoppingCart(
                     purchaseIcon = {
                         Icon(
                             Icons.Default.ThumbUp,
-                            contentDescription = "Finalize purchase"
+                            contentDescription = stringResource(R.string.finalize_purchase)
                         )
                     },
                     cancelPurchaseIcon = {
                         Icon(
                             Icons.Default.ShoppingCart,
-                            contentDescription = "Return item to shopping cart"
+                            contentDescription = stringResource(R.string.return_item_to_shopping_cart)
                         )
                     },
 
@@ -201,9 +210,11 @@ fun CartItemEditPreview() {
         "Hey apple",
         23f,
         5f,
+        purchaseDate = PurchaseDay(28, 2, 2016),
         onNameChanged = {},
         onAmountChanged = {},
         onPriceChanged = {},
+        onDateChanged = {},
         onAccepted = {},
         onCanceled = {})
 }
